@@ -3,33 +3,50 @@ import numpy as np
 
 class GaussLatticeReduction(Scene):
     def construct(self):
+        self.camera.background_color = BLACK
+        self.camera.background_rgba = np.array([0.0, 0.0, 0.0, 1.0])
+
+        # Hard backdrop to avoid renderer/theme gray backgrounds.
+        backdrop = FullScreenRectangle(fill_color=BLACK, fill_opacity=1, stroke_width=0)
+        backdrop.set_z_index(-100)
+        self.add(backdrop)
+
         # Configuration
         v1_coords = np.array([3.0, 1.0, 0.0])
         v2_coords = np.array([4.0, 3.0, 0.0])
         
+        # --- VISUAL FIXES APPLIED HERE ---
         c1 = TEAL
         c2 = MAROON
-        lattice_color = GREY
-        lattice_opacity = 0.5
+        lattice_color = YELLOW  # Changed from GREY to YELLOW
+        lattice_opacity = 0.6   # Bumped opacity slightly so the yellow pops
         
-        # Header
-        title = Text("Gauss's Lattice Reduction Algorithm", font_size=40)
-        title.to_edge(UP)
-        self.play(Write(title))
+        # Header (commented out to save screen space)
+        # title = Text("Gauss's Lattice Reduction Algorithm", font_size=40)
+        # title.to_edge(UP)
+        # self.play(Write(title))
         
         # --- Setup Initial State ---
-        v1 = Vector(v1_coords, color=c1)
-        v2 = Vector(v2_coords, color=c2)
+        v1 = Vector(v1_coords, color=WHITE)
+        v2 = Vector(v2_coords, color=WHITE)
         
-        label1 = Tex("v_1").next_to(v1.get_end(), RIGHT + DOWN, buff=0.1).set_color(c1)
-        label2 = Tex("v_2").next_to(v2.get_end(), UP + LEFT, buff=0.1).set_color(c2)
+        label1 = Tex("v_1").set_color(c1).next_to(v1.get_end(), RIGHT + DOWN, buff=0.1)
+        label2 = Tex("v_2").set_color(c2).next_to(v2.get_end(), UP + LEFT, buff=0.1)
         
         def get_lattice_dots(b1, b2, x_range=(-6, 7), y_range=(-6, 7)):
             dots = VGroup()
             for x in range(x_range[0], x_range[1]):
                 for y in range(y_range[0], y_range[1]):
                     point = x * b1 + y * b2
-                    dot = Dot(point, radius=0.05, color=lattice_color, fill_opacity=lattice_opacity)
+                    dot = Dot(
+                        point,
+                        radius=0.05,
+                        fill_color=lattice_color,
+                        fill_opacity=lattice_opacity,
+                        stroke_color=lattice_color,
+                        stroke_opacity=lattice_opacity,
+                        stroke_width=0,
+                    )
                     dots.add(dot)
             return dots
 
@@ -46,10 +63,9 @@ class GaussLatticeReduction(Scene):
         self.wait(1)
 
         def get_basis_text(v1_arr, v2_arr):
-            return VGroup(
-                Tex(f"v_1 = [{int(round(v1_arr[0]))}, {int(round(v1_arr[1]))}]", color=c1),
-                Tex(f"v_2 = [{int(round(v2_arr[0]))}, {int(round(v2_arr[1]))}]", color=c2)
-            ).arrange(DOWN, aligned_edge=LEFT).to_corner(UL).shift(DOWN * 0.5)
+            line1 = Tex(f"v_1 = [{int(round(v1_arr[0]))}, {int(round(v1_arr[1]))}]").set_color(c1)
+            line2 = Tex(f"v_2 = [{int(round(v2_arr[0]))}, {int(round(v2_arr[1]))}]").set_color(c2)
+            return VGroup(line1, line2).arrange(DOWN, aligned_edge=LEFT).to_corner(UL).shift(DOWN * 0.5)
 
         info_text = get_basis_text(current_v1_array, current_v2_array)
         self.play(Write(info_text))
@@ -71,11 +87,11 @@ class GaussLatticeReduction(Scene):
                 
                 current_v1_array, current_v2_array = current_v2_array, current_v1_array
                 
-                new_v1 = Vector(current_v1_array, color=c1)
-                new_v2 = Vector(current_v2_array, color=c2)
+                new_v1 = Vector(current_v1_array, color=WHITE)
+                new_v2 = Vector(current_v2_array, color=WHITE)
                 
-                new_label1 = Tex("v_1").next_to(new_v1.get_end(), RIGHT + DOWN, buff=0.1).set_color(c1)
-                new_label2 = Tex("v_2").next_to(new_v2.get_end(), UP + LEFT, buff=0.1).set_color(c2)
+                new_label1 = Tex("v_1").set_color(c1).next_to(new_v1.get_end(), RIGHT + DOWN, buff=0.1)
+                new_label2 = Tex("v_2").set_color(c2).next_to(new_v2.get_end(), UP + LEFT, buff=0.1)
                 new_info_text = get_basis_text(current_v1_array, current_v2_array).move_to(info_text.get_center())
 
                 self.play(
@@ -87,7 +103,6 @@ class GaussLatticeReduction(Scene):
                 )
                 self.play(FadeOut(swap_text))
                 
-                # References updated cleanly
                 v1, v2 = new_v1, new_v2
                 label1, label2 = new_label1, new_label2
                 info_text = new_info_text
@@ -104,7 +119,12 @@ class GaussLatticeReduction(Scene):
             self.wait(0.5)
 
             if m == 0:
-                final_text = Text("Algorithm Terminated (m=0)", color=GREEN, font_size=24).next_to(calc_text, DOWN, aligned_edge=LEFT)
+                final_text = Text(
+                    "Algorithm Terminated (m=0)",
+                    color=GREEN,
+                    font_size=24,
+                    font="Times New Roman",
+                ).next_to(calc_text, DOWN, aligned_edge=LEFT)
                 self.play(Write(final_text))
                 self.wait(2)
                 break
@@ -113,12 +133,19 @@ class GaussLatticeReduction(Scene):
             span_line = Line(current_v1_array * -10, current_v1_array * 10, color=c1, stroke_opacity=0.3)
             exact_proj_point = (dot_prod / norm_sq) * current_v1_array
             perp_line = DashedLine(current_v2_array, exact_proj_point, color=WHITE, stroke_opacity=0.6)
+            proj_dot = Dot(exact_proj_point, color=WHITE, radius=0.06)
+            proj_label = Tex(r"\mathrm{proj}_{v_1}(v_2)", color=WHITE, font_size=26).next_to(
+                proj_dot,
+                UP + RIGHT,
+                buff=0.1,
+            )
             
             m_v1_point = m * current_v1_array
             m_dot = Dot(m_v1_point, color=YELLOW)
             
             self.play(ShowCreation(span_line))
             self.play(ShowCreation(perp_line))
+            self.play(FadeIn(proj_dot), Write(proj_label))
             self.play(ShowCreation(m_dot))
             self.wait(1)
 
@@ -132,20 +159,20 @@ class GaussLatticeReduction(Scene):
             self.wait(0.5)
             
             next_v2_array = current_v2_array + shift_vec
-            new_v2 = Vector(next_v2_array, color=c2)
-            new_label2 = Tex("v_2").next_to(new_v2.get_end(), UP+LEFT, buff=0.1).set_color(c2)
+            new_v2 = Vector(next_v2_array, color=WHITE)
+            
+            new_label2 = Tex("v_2").set_color(c2).next_to(new_v2.get_end(), UP+LEFT, buff=0.1)
             new_info_text = get_basis_text(current_v1_array, next_v2_array).move_to(info_text.get_center())
 
-            # FIX APPLIED HERE: ReplacementTransform for info_text
             self.play(
                 ReplacementTransform(v2, new_v2),
                 ReplacementTransform(label2, new_label2),
                 ReplacementTransform(info_text, new_info_text), 
                 FadeOut(sub_arrow), FadeOut(perp_line), 
-                FadeOut(span_line), FadeOut(m_dot)
+                FadeOut(span_line), FadeOut(m_dot),
+                FadeOut(proj_dot), FadeOut(proj_label)
             )
             
-            # FIX APPLIED HERE: Updating the info_text reference for the next loop
             v2 = new_v2
             label2 = new_label2
             info_text = new_info_text 
@@ -158,7 +185,12 @@ class GaussLatticeReduction(Scene):
         rect = SurroundingRectangle(info_text, color=GREEN)
         self.play(ShowCreation(rect))
         
-        ortho_text = Text("Reduced Orthogonal Basis", font_size=36, color=GREEN).next_to(rect, RIGHT)
+        ortho_text = Text(
+            "Reduced Basis",
+            font_size=36,
+            color=GREEN,
+            font="Times New Roman",
+        ).next_to(rect, RIGHT)
         self.play(Write(ortho_text))
         
         self.play(Flash(lattice_dots, color=WHITE, run_time=2))
