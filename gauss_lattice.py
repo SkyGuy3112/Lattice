@@ -67,8 +67,46 @@ class GaussLatticeReduction(Scene):
             line2 = Tex(f"v_2 = [{int(round(v2_arr[0]))}, {int(round(v2_arr[1]))}]").set_color(c2)
             return VGroup(line1, line2).arrange(DOWN, aligned_edge=LEFT).to_corner(UL).shift(DOWN * 0.5)
 
+        def get_fundamental_cell(b1, b2, color, fill_opacity=0.2):
+            return Polygon(
+                ORIGIN,
+                b1,
+                b1 + b2,
+                b2,
+                color=color,
+                fill_color=color,
+                fill_opacity=fill_opacity,
+                stroke_width=2,
+            )
+
+        def get_cell_edge_vectors(b1, b2):
+            edge1 = Arrow(ORIGIN, b1, buff=0, color=c1, stroke_width=4)
+            edge2 = Arrow(ORIGIN, b2, buff=0, color=c2, stroke_width=4)
+            edge1_label = Tex("v_1").set_color(c1).next_to(edge1.get_end(), RIGHT + DOWN, buff=0.08)
+            edge2_label = Tex("v_2").set_color(c2).next_to(edge2.get_end(), UP + LEFT, buff=0.08)
+            return VGroup(edge1, edge2, edge1_label, edge2_label)
+
         info_text = get_basis_text(current_v1_array, current_v2_array)
         self.play(Write(info_text))
+
+        # Intro: Fundamental cell before reduction.
+        before_cell = get_fundamental_cell(current_v1_array, current_v2_array, BLUE, fill_opacity=0.22)
+        before_edges = get_cell_edge_vectors(current_v1_array, current_v2_array)
+        before_cell_text = Text(
+            "Fundamental cell (before reduction)",
+            font_size=24,
+            color=BLUE,
+        ).to_edge(DOWN)
+        self.play(
+            ShowCreation(before_cell),
+            ShowCreation(before_edges[0]),
+            ShowCreation(before_edges[1]),
+            Write(before_edges[2]),
+            Write(before_edges[3]),
+            FadeIn(before_cell_text, UP),
+        )
+        self.wait(1)
+        self.play(FadeOut(before_cell), FadeOut(before_edges), FadeOut(before_cell_text))
         
         # --- Algorithm Loop ---
         step_count = 0
@@ -180,6 +218,25 @@ class GaussLatticeReduction(Scene):
             
             self.play(FadeOut(calc_text), FadeOut(action_text))
             self.wait(0.5)
+
+        # Fundamental cell after reduction.
+        after_cell = get_fundamental_cell(current_v1_array, current_v2_array, GREEN, fill_opacity=0.26)
+        after_edges = get_cell_edge_vectors(current_v1_array, current_v2_array)
+        after_cell_text = Text(
+            "Fundamental cell (after reduction)",
+            font_size=24,
+            color=GREEN,
+        ).to_edge(DOWN)
+        self.play(
+            ShowCreation(after_cell),
+            ShowCreation(after_edges[0]),
+            ShowCreation(after_edges[1]),
+            Write(after_edges[2]),
+            Write(after_edges[3]),
+            FadeIn(after_cell_text, UP),
+        )
+        self.wait(1)
+        self.play(FadeOut(after_cell), FadeOut(after_edges), FadeOut(after_cell_text))
 
         # Highlight final basis
         rect = SurroundingRectangle(info_text, color=GREEN)
