@@ -11,6 +11,37 @@ class GaussLatticeReduction(Scene):
         backdrop.set_z_index(-100)
         self.add(backdrop)
 
+        # Cartesian reference frame for easier geometric reading.
+        plane = NumberPlane(
+            x_range=(-8, 8, 1),
+            y_range=(-5, 5, 1),
+            background_line_style={
+                "stroke_color": GREY,
+                "stroke_width": 1,
+                "stroke_opacity": 0.2,
+            },
+        )
+        axes = Axes(
+            x_range=(-8, 8, 1),
+            y_range=(-5, 5, 1),
+            axis_config={
+                "color": GREY,
+                "stroke_width": 2,
+                "stroke_opacity": 0.6,
+            },
+        )
+        x_label = Tex("x").set_color(GREY).next_to(axes.x_axis.get_end(), RIGHT, buff=0.12)
+        y_label = Tex("y").set_color(GREY).next_to(axes.y_axis.get_end(), UP, buff=0.12)
+        self.add(plane, axes, x_label, y_label)
+
+        origin_point = axes.c2p(0, 0)
+
+        def to_cart_point(arr):
+            return axes.c2p(arr[0], arr[1])
+
+        def basis_arrow(arr, color=WHITE):
+            return Arrow(origin_point, to_cart_point(arr), buff=0, color=color)
+
         # Configuration
         v1_coords = np.array([3.0, 1.0, 0.0])
         v2_coords = np.array([4.0, 3.0, 0.0])
@@ -27,52 +58,52 @@ class GaussLatticeReduction(Scene):
         # self.play(Write(title))
         
         # --- Setup Initial State ---
-        v1 = Vector(v1_coords, color=WHITE)
-        v2 = Vector(v2_coords, color=WHITE)
+        v1 = basis_arrow(v1_coords, color=WHITE)
+        v2 = basis_arrow(v2_coords, color=WHITE)
         
         label1 = Tex("v_1").set_color(c1).next_to(v1.get_end(), RIGHT + DOWN, buff=0.1)
         label2 = Tex("v_2").set_color(c2).next_to(v2.get_end(), UP + LEFT, buff=0.1)
         
-        def get_lattice_dots(b1, b2, x_range=(-6, 7), y_range=(-6, 7)):
-            dots = VGroup()
-            for x in range(x_range[0], x_range[1]):
-                for y in range(y_range[0], y_range[1]):
-                    point = x * b1 + y * b2
-                    dot = Dot(
-                        point,
-                        radius=0.05,
-                        fill_color=lattice_color,
-                        fill_opacity=lattice_opacity,
-                        stroke_color=lattice_color,
-                        stroke_opacity=lattice_opacity,
-                        stroke_width=0,
-                    )
-                    dots.add(dot)
-            return dots
+        # def get_lattice_dots(b1, b2, x_range=(-6, 7), y_range=(-6, 7)):
+        #     dots = VGroup()
+        #     for x in range(x_range[0], x_range[1]):
+        #         for y in range(y_range[0], y_range[1]):
+        #             point = x * b1 + y * b2
+        #             dot = Dot(
+        #                 to_cart_point(point),
+        #                 radius=0.05,
+        #                 fill_color=lattice_color,
+        #                 fill_opacity=lattice_opacity,
+        #                 stroke_color=lattice_color,
+        #                 stroke_opacity=lattice_opacity,
+        #                 stroke_width=0,
+        #             )
+        #             dots.add(dot)
+        #     return dots
 
         current_v1_array = v1_coords.copy()
         current_v2_array = v2_coords.copy()
 
-        lattice_dots = get_lattice_dots(current_v1_array, current_v2_array)
+        # lattice_dots = get_lattice_dots(current_v1_array, current_v2_array)
         
         self.play(
             ShowCreation(v1), Write(label1),
             ShowCreation(v2), Write(label2)
         )
-        self.play(ShowCreation(lattice_dots), run_time=2)
+        # self.play(ShowCreation(lattice_dots), run_time=2)
         self.wait(1)
 
         def get_basis_text(v1_arr, v2_arr):
-            line1 = Tex(f"v_1 = [{int(round(v1_arr[0]))}, {int(round(v1_arr[1]))}]").set_color(c1)
-            line2 = Tex(f"v_2 = [{int(round(v2_arr[0]))}, {int(round(v2_arr[1]))}]").set_color(c2)
+            line1 = Tex(f"v_1 = ({int(round(v1_arr[0]))}, {int(round(v1_arr[1]))})").set_color(c1)
+            line2 = Tex(f"v_2 = ({int(round(v2_arr[0]))}, {int(round(v2_arr[1]))})").set_color(c2)
             return VGroup(line1, line2).arrange(DOWN, aligned_edge=LEFT).to_corner(UL).shift(DOWN * 0.5)
 
         def get_fundamental_cell(b1, b2, color, fill_opacity=0.2):
             return Polygon(
-                ORIGIN,
-                b1,
-                b1 + b2,
-                b2,
+                origin_point,
+                to_cart_point(b1),
+                to_cart_point(b1 + b2),
+                to_cart_point(b2),
                 color=color,
                 fill_color=color,
                 fill_opacity=fill_opacity,
@@ -80,8 +111,8 @@ class GaussLatticeReduction(Scene):
             )
 
         def get_cell_edge_vectors(b1, b2):
-            edge1 = Arrow(ORIGIN, b1, buff=0, color=c1, stroke_width=4)
-            edge2 = Arrow(ORIGIN, b2, buff=0, color=c2, stroke_width=4)
+            edge1 = Arrow(origin_point, to_cart_point(b1), buff=0, color=c1, stroke_width=4)
+            edge2 = Arrow(origin_point, to_cart_point(b2), buff=0, color=c2, stroke_width=4)
             edge1_label = Tex("v_1").set_color(c1).next_to(edge1.get_end(), RIGHT + DOWN, buff=0.08)
             edge2_label = Tex("v_2").set_color(c2).next_to(edge2.get_end(), UP + LEFT, buff=0.08)
             return VGroup(edge1, edge2, edge1_label, edge2_label)
@@ -125,8 +156,8 @@ class GaussLatticeReduction(Scene):
                 
                 current_v1_array, current_v2_array = current_v2_array, current_v1_array
                 
-                new_v1 = Vector(current_v1_array, color=WHITE)
-                new_v2 = Vector(current_v2_array, color=WHITE)
+                new_v1 = basis_arrow(current_v1_array, color=WHITE)
+                new_v2 = basis_arrow(current_v2_array, color=WHITE)
                 
                 new_label1 = Tex("v_1").set_color(c1).next_to(new_v1.get_end(), RIGHT + DOWN, buff=0.1)
                 new_label2 = Tex("v_2").set_color(c2).next_to(new_v2.get_end(), UP + LEFT, buff=0.1)
@@ -168,10 +199,20 @@ class GaussLatticeReduction(Scene):
                 break
             
             # Visualizing the Projection Intuition
-            span_line = Line(current_v1_array * -10, current_v1_array * 10, color=c1, stroke_opacity=0.3)
+            span_line = Line(
+                to_cart_point(current_v1_array * -10),
+                to_cart_point(current_v1_array * 10),
+                color=c1,
+                stroke_opacity=0.3,
+            )
             exact_proj_point = (dot_prod / norm_sq) * current_v1_array
-            perp_line = DashedLine(current_v2_array, exact_proj_point, color=WHITE, stroke_opacity=0.6)
-            proj_dot = Dot(exact_proj_point, color=WHITE, radius=0.06)
+            perp_line = DashedLine(
+                to_cart_point(current_v2_array),
+                to_cart_point(exact_proj_point),
+                color=WHITE,
+                stroke_opacity=0.6,
+            )
+            proj_dot = Dot(to_cart_point(exact_proj_point), color=WHITE, radius=0.06)
             proj_label = Tex(r"\mathrm{proj}_{v_1}(v_2)", color=WHITE, font_size=26).next_to(
                 proj_dot,
                 UP + RIGHT,
@@ -179,7 +220,7 @@ class GaussLatticeReduction(Scene):
             )
             
             m_v1_point = m * current_v1_array
-            m_dot = Dot(m_v1_point, color=YELLOW)
+            m_dot = Dot(to_cart_point(m_v1_point), color=YELLOW)
             
             self.play(ShowCreation(span_line))
             self.play(ShowCreation(perp_line))
@@ -192,12 +233,17 @@ class GaussLatticeReduction(Scene):
             self.play(Write(action_text))
             
             shift_vec = -m * current_v1_array
-            sub_arrow = Arrow(current_v2_array, current_v2_array + shift_vec, color=RED, buff=0)
+            sub_arrow = Arrow(
+                to_cart_point(current_v2_array),
+                to_cart_point(current_v2_array + shift_vec),
+                color=RED,
+                buff=0,
+            )
             self.play(ShowCreation(sub_arrow))
             self.wait(0.5)
             
             next_v2_array = current_v2_array + shift_vec
-            new_v2 = Vector(next_v2_array, color=WHITE)
+            new_v2 = basis_arrow(next_v2_array, color=WHITE)
             
             new_label2 = Tex("v_2").set_color(c2).next_to(new_v2.get_end(), UP+LEFT, buff=0.1)
             new_info_text = get_basis_text(current_v1_array, next_v2_array).move_to(info_text.get_center())
@@ -250,5 +296,5 @@ class GaussLatticeReduction(Scene):
         ).next_to(rect, RIGHT)
         self.play(Write(ortho_text))
         
-        self.play(Flash(lattice_dots, color=WHITE, run_time=2))
+        # self.play(Flash(lattice_dots, color=WHITE, run_time=2))
         self.wait(3)
