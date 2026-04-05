@@ -1,6 +1,7 @@
 __pycache__/
 .vscode/
 videos/
-Untitled.ipynb
-untitled.slides.html
+notebooks/Untitled.ipynb
+notebooks/untitled.slides.html
 .ipynb_checkpoints/
+notebooks/.ipynb_checkpoints/
