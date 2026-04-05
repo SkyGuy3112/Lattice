@@ -1,300 +1,565 @@
 from manimlib import *
 import numpy as np
 
+
 class GaussLatticeReduction(Scene):
     def construct(self):
         self.camera.background_color = BLACK
-        self.camera.background_rgba = np.array([0.0, 0.0, 0.0, 1.0])
+        self.camera.frame.set_width(24.0)
 
-        # Hard backdrop to avoid renderer/theme gray backgrounds.
-        backdrop = FullScreenRectangle(fill_color=BLACK, fill_opacity=1, stroke_width=0)
-        backdrop.set_z_index(-100)
-        self.add(backdrop)
-
-        # Cartesian reference frame for easier geometric reading.
         plane = NumberPlane(
-            x_range=(-8, 8, 1),
-            y_range=(-5, 5, 1),
+            x_range=(-12, 12, 1),
+            y_range=(-10, 14, 1),
             background_line_style={
                 "stroke_color": GREY,
-                "stroke_width": 1,
-                "stroke_opacity": 0.2,
+                "stroke_width": 1.15,
+                "stroke_opacity": 0.28,
             },
-        )
-        axes = Axes(
-            x_range=(-8, 8, 1),
-            y_range=(-5, 5, 1),
             axis_config={
-                "color": GREY,
-                "stroke_width": 2,
-                "stroke_opacity": 0.6,
+                "stroke_color": GREY,
+                "stroke_width": 1.8,
+                "stroke_opacity": 0.45,
             },
         )
-        x_label = Tex("x").set_color(GREY).next_to(axes.x_axis.get_end(), RIGHT, buff=0.12)
-        y_label = Tex("y").set_color(GREY).next_to(axes.y_axis.get_end(), UP, buff=0.12)
-        self.add(plane, axes, x_label, y_label)
 
-        origin_point = axes.c2p(0, 0)
+        origin = plane.c2p(0, 0)
+        u_color = MAROON
+        v_color = TEAL
+        cell_color = YELLOW
 
-        def to_cart_point(arr):
-            return axes.c2p(arr[0], arr[1])
+        def c2p(vec):
+            return plane.c2p(vec[0], vec[1])
 
-        def basis_arrow(arr, color=WHITE):
-            return Arrow(origin_point, to_cart_point(arr), buff=0, color=color)
+        def nearest_integer_ties_toward_zero(x):
+            lower = int(np.floor(x))
+            upper = int(np.ceil(x))
+            d_lower = abs(x - lower)
+            d_upper = abs(x - upper)
+            if d_lower < d_upper:
+                return lower
+            if d_upper < d_lower:
+                return upper
+            return lower if abs(lower) <= abs(upper) else upper
 
-        # Configuration
-        v1_coords = np.array([3.0, 1.0, 0.0])
-        v2_coords = np.array([4.0, 3.0, 0.0])
-        
-        # --- VISUAL FIXES APPLIED HERE ---
-        c1 = TEAL
-        c2 = MAROON
-        lattice_color = YELLOW  # Changed from GREY to YELLOW
-        lattice_opacity = 0.6   # Bumped opacity slightly so the yellow pops
-        
-        # Header (commented out to save screen space)
-        # title = Text("Gauss's Lattice Reduction Algorithm", font_size=40)
-        # title.to_edge(UP)
-        # self.play(Write(title))
-        
-        # --- Setup Initial State ---
-        v1 = basis_arrow(v1_coords, color=WHITE)
-        v2 = basis_arrow(v2_coords, color=WHITE)
-        
-        label1 = Tex("v_1").set_color(c1).next_to(v1.get_end(), RIGHT + DOWN, buff=0.1)
-        label2 = Tex("v_2").set_color(c2).next_to(v2.get_end(), UP + LEFT, buff=0.1)
-        
-        # def get_lattice_dots(b1, b2, x_range=(-6, 7), y_range=(-6, 7)):
-        #     dots = VGroup()
-        #     for x in range(x_range[0], x_range[1]):
-        #         for y in range(y_range[0], y_range[1]):
-        #             point = x * b1 + y * b2
-        #             dot = Dot(
-        #                 to_cart_point(point),
-        #                 radius=0.05,
-        #                 fill_color=lattice_color,
-        #                 fill_opacity=lattice_opacity,
-        #                 stroke_color=lattice_color,
-        #                 stroke_opacity=lattice_opacity,
-        #                 stroke_width=0,
-        #             )
-        #             dots.add(dot)
-        #     return dots
+        def vec_tex(name, vec):
+            return f"{name}=({int(vec[0])},{int(vec[1])})"
 
-        current_v1_array = v1_coords.copy()
-        current_v2_array = v2_coords.copy()
+        def build_basis_group(u, v):
+            u_arrow = Arrow(origin, c2p(u), buff=0, color=u_color)
+            u_arrow.set_stroke(u_color, width=4, opacity=1.0)
 
-        # lattice_dots = get_lattice_dots(current_v1_array, current_v2_array)
-        
-        self.play(
-            ShowCreation(v1), Write(label1),
-            ShowCreation(v2), Write(label2)
-        )
-        # self.play(ShowCreation(lattice_dots), run_time=2)
-        self.wait(1)
+            v_arrow = Arrow(origin, c2p(v), buff=0, color=v_color)
+            v_arrow.set_stroke(v_color, width=4, opacity=1.0)
 
-        def get_basis_text(v1_arr, v2_arr):
-            line1 = Tex(f"v_1 = ({int(round(v1_arr[0]))}, {int(round(v1_arr[1]))})").set_color(c1)
-            line2 = Tex(f"v_2 = ({int(round(v2_arr[0]))}, {int(round(v2_arr[1]))})").set_color(c2)
-            return VGroup(line1, line2).arrange(DOWN, aligned_edge=LEFT).to_corner(UL).shift(DOWN * 0.5)
+            u_label = Tex("u").set_color(u_color).next_to(u_arrow.get_end(), RIGHT + DOWN, buff=0.08)
+            v_label = Tex("v").set_color(v_color).next_to(v_arrow.get_end(), LEFT + UP, buff=0.08)
+            return VGroup(u_arrow, v_arrow, u_label, v_label)
 
-        def get_fundamental_cell(b1, b2, color, fill_opacity=0.2):
-            return Polygon(
-                origin_point,
-                to_cart_point(b1),
-                to_cart_point(b1 + b2),
-                to_cart_point(b2),
-                color=color,
-                fill_color=color,
-                fill_opacity=fill_opacity,
-                stroke_width=2,
+        def build_cell_group(u, v):
+            p0 = origin
+            p1 = c2p(u)
+            p2 = c2p(u + v)
+            p3 = c2p(v)
+
+            fill = Polygon(p0, p1, p2, p3, stroke_width=0)
+            fill.set_fill(cell_color, opacity=0.12)
+
+            edges = VGroup(
+                DashedLine(p0, p1, color=cell_color, stroke_width=2.6),
+                DashedLine(p1, p2, color=cell_color, stroke_width=2.6),
+                DashedLine(p2, p3, color=cell_color, stroke_width=2.6),
+                DashedLine(p3, p0, color=cell_color, stroke_width=2.6),
             )
+            return VGroup(fill, edges)
 
-        def get_cell_edge_vectors(b1, b2):
-            edge1 = Arrow(origin_point, to_cart_point(b1), buff=0, color=c1, stroke_width=4)
-            edge2 = Arrow(origin_point, to_cart_point(b2), buff=0, color=c2, stroke_width=4)
-            edge1_label = Tex("v_1").set_color(c1).next_to(edge1.get_end(), RIGHT + DOWN, buff=0.08)
-            edge2_label = Tex("v_2").set_color(c2).next_to(edge2.get_end(), UP + LEFT, buff=0.08)
-            return VGroup(edge1, edge2, edge1_label, edge2_label)
+        def build_status_block(u, v):
+            nu = np.linalg.norm(u)
+            nv = np.linalg.norm(v)
+            lines = VGroup(
+                Tex(vec_tex("u", u)).set_color(u_color),
+                Tex(vec_tex("v", v)).set_color(v_color),
+                Tex(rf"\lVert u\rVert={nu:.3f}").set_color(WHITE),
+                Tex(rf"\lVert v\rVert={nv:.3f}").set_color(WHITE),
+            )
+            return lines.arrange(DOWN, aligned_edge=LEFT, buff=0.14)
 
-        info_text = get_basis_text(current_v1_array, current_v2_array)
-        self.play(Write(info_text))
+        def build_algorithm_panel():
+            line1 = Tex(r"\text{Input: basis }[u,v]\text{ of }L\subseteq\mathbb{Z}^2,\ \lVert u\rVert\leq\lVert v\rVert")
+            line2 = Tex(r"\text{Output: reduced basis }[u,v]")
+            line3 = Tex(r"1.\ c\leftarrow 1")
+            line4 = Tex(r"2.\ \text{while }c\neq 0\ \text{do}")
+            line5 = Tex(r"\ \ (a)\ \mu=\langle u,v\rangle/\lVert u\rVert^2,\ c=[\mu]")
+            line6 = Tex(r"\ \ (b)\ v\leftarrow v-cu")
+            line7 = Tex(r"\ \ (c)\ \text{if }\lVert u\rVert>\lVert v\rVert\ \text{then swap }u,v")
+            line8 = Tex(r"3.\ \text{return }[u,v]")
 
-        # Intro: Fundamental cell before reduction.
-        before_cell = get_fundamental_cell(current_v1_array, current_v2_array, BLUE, fill_opacity=0.22)
-        before_edges = get_cell_edge_vectors(current_v1_array, current_v2_array)
-        before_cell_text = Text(
-            "Fundamental cell (before reduction)",
-            font_size=24,
-            color=BLUE,
-        ).to_edge(DOWN)
-        self.play(
-            ShowCreation(before_cell),
-            ShowCreation(before_edges[0]),
-            ShowCreation(before_edges[1]),
-            Write(before_edges[2]),
-            Write(before_edges[3]),
-            FadeIn(before_cell_text, UP),
-        )
-        self.wait(1)
-        self.play(FadeOut(before_cell), FadeOut(before_edges), FadeOut(before_cell_text))
-        
-        # --- Algorithm Loop ---
-        step_count = 0
-        while step_count < 10:
-            step_count += 1
-            
-            # Step 1: Ensure |v1| <= |v2|
-            norm1 = np.linalg.norm(current_v1_array)
-            norm2 = np.linalg.norm(current_v2_array)
-            
-            if norm2 < norm1:
-                self.play(Flash(info_text, color=YELLOW), run_time=0.5)
-                
-                swap_text = Text("Swap basis vectors", font_size=24, color=YELLOW).next_to(info_text, DOWN)
-                self.play(FadeIn(swap_text, UP))
-                
-                current_v1_array, current_v2_array = current_v2_array, current_v1_array
-                
-                new_v1 = basis_arrow(current_v1_array, color=WHITE)
-                new_v2 = basis_arrow(current_v2_array, color=WHITE)
-                
-                new_label1 = Tex("v_1").set_color(c1).next_to(new_v1.get_end(), RIGHT + DOWN, buff=0.1)
-                new_label2 = Tex("v_2").set_color(c2).next_to(new_v2.get_end(), UP + LEFT, buff=0.1)
-                new_info_text = get_basis_text(current_v1_array, current_v2_array).move_to(info_text.get_center())
+            lines = VGroup(line1, line2, line3, line4, line5, line6, line7, line8)
+            for ln in lines:
+                ln.set_color(WHITE)
+                ln.scale(0.60)
 
-                self.play(
-                    ReplacementTransform(v1, new_v1),
-                    ReplacementTransform(v2, new_v2),
-                    ReplacementTransform(label1, new_label1),
-                    ReplacementTransform(label2, new_label2),
-                    ReplacementTransform(info_text, new_info_text),
-                )
-                self.play(FadeOut(swap_text))
-                
-                v1, v2 = new_v1, new_v2
-                label1, label2 = new_label1, new_label2
-                info_text = new_info_text
-                self.wait(0.5)
-            
-            # Step 2: Calculate Projection coefficient m
-            dot_prod = np.dot(current_v1_array, current_v2_array)
-            norm_sq = np.dot(current_v1_array, current_v1_array)
-            m = int(round(dot_prod / norm_sq))
-            
-            calc_text = Tex(f"m = \\lfloor \\frac{{v_1 \\cdot v_2}}{{|v_1|^2}} \\rceil = {m}", font_size=30)
-            calc_text.next_to(info_text, DOWN, aligned_edge=LEFT)
-            self.play(Write(calc_text))
-            self.wait(0.5)
+            lines.arrange(DOWN, aligned_edge=LEFT, buff=0.12)
+            frame = SurroundingRectangle(lines, color=GREY_B, buff=0.18)
+            panel = VGroup(frame, lines)
+            return panel, lines
 
-            if m == 0:
-                final_text = Text(
-                    "Algorithm Terminated (m=0)",
-                    color=GREEN,
-                    font_size=24,
-                    font="Times New Roman",
-                ).next_to(calc_text, DOWN, aligned_edge=LEFT)
-                self.play(Write(final_text))
-                self.wait(2)
+        def pin_status_block(block):
+            block.next_to(self.camera.frame.get_corner(UL), RIGHT + DOWN, buff=0.35)
+            return block
+
+        def pin_algorithm_panel(panel):
+            panel.next_to(self.camera.frame.get_corner(UR), LEFT + DOWN, buff=0.35)
+            return panel
+
+        u = np.array([3.0, 5.0])
+        v = np.array([4.0, 7.0])
+        c = 1
+
+        basis_group = build_basis_group(u, v)
+        cell_group = build_cell_group(u, v)
+        status_block = pin_status_block(build_status_block(u, v))
+        panel, lines = build_algorithm_panel()
+        panel = pin_algorithm_panel(panel)
+        step_box = SurroundingRectangle(lines[2], color=YELLOW, buff=0.06)
+
+        self.add(plane)
+        self.play(ShowCreation(basis_group[0]), ShowCreation(basis_group[1]), Write(basis_group[2]), Write(basis_group[3]), run_time=1.5)
+        self.play(FadeIn(cell_group[0]), ShowCreation(cell_group[1]), run_time=1.2)
+        self.play(FadeIn(panel), Write(status_block), ShowCreation(step_box), run_time=1.2)
+        self.wait(1.0)
+
+        iteration = 0
+        max_iterations = 10
+
+        while c != 0 and iteration < max_iterations:
+            iteration += 1
+
+            new_step_box = SurroundingRectangle(lines[4], color=YELLOW, buff=0.06)
+            self.play(ReplacementTransform(step_box, new_step_box), run_time=0.9)
+            step_box = new_step_box
+            self.wait(1.0)
+
+            mu = float(np.dot(u, v) / np.dot(u, u))
+            c = nearest_integer_ties_toward_zero(mu)
+
+            compute_text = Tex(
+                rf"\mu=\langle u,v\rangle/\lVert u\rVert^2={mu:.4f},\quad c=[\mu]={c}"
+            )
+            compute_text.set_color(WHITE)
+            compute_text.scale(0.74)
+            compute_text.next_to(status_block, DOWN, aligned_edge=LEFT, buff=0.28)
+            self.play(Write(compute_text), run_time=0.85)
+            self.wait(1.0)
+
+            if c == 0:
+                done_text = Tex(r"c=0,\ \text{stop the loop}")
+                done_text.set_color(WHITE)
+                done_text.scale(0.74)
+                done_text.next_to(compute_text, DOWN, aligned_edge=LEFT, buff=0.18)
+                new_step_box = SurroundingRectangle(lines[7], color=GREEN, buff=0.06)
+                self.play(Write(done_text), ReplacementTransform(step_box, new_step_box), run_time=0.8)
+                step_box = new_step_box
+                self.wait(1.0)
+                self.play(FadeOut(done_text), FadeOut(compute_text), run_time=0.5)
                 break
-            
-            # Visualizing the Projection Intuition
-            span_line = Line(
-                to_cart_point(current_v1_array * -10),
-                to_cart_point(current_v1_array * 10),
-                color=c1,
-                stroke_opacity=0.3,
-            )
-            exact_proj_point = (dot_prod / norm_sq) * current_v1_array
-            perp_line = DashedLine(
-                to_cart_point(current_v2_array),
-                to_cart_point(exact_proj_point),
-                color=WHITE,
-                stroke_opacity=0.6,
-            )
-            proj_dot = Dot(to_cart_point(exact_proj_point), color=WHITE, radius=0.06)
-            proj_label = Tex(r"\mathrm{proj}_{v_1}(v_2)", color=WHITE, font_size=26).next_to(
-                proj_dot,
-                UP + RIGHT,
-                buff=0.1,
-            )
-            
-            m_v1_point = m * current_v1_array
-            m_dot = Dot(to_cart_point(m_v1_point), color=YELLOW)
-            
-            self.play(ShowCreation(span_line))
-            self.play(ShowCreation(perp_line))
-            self.play(FadeIn(proj_dot), Write(proj_label))
-            self.play(ShowCreation(m_dot))
-            self.wait(1)
 
-            # Step 3: Reduction
-            action_text = Tex(f"v_2 \\leftarrow v_2 - {m}v_1", color=RED).next_to(calc_text, DOWN, aligned_edge=LEFT)
-            self.play(Write(action_text))
-            
-            shift_vec = -m * current_v1_array
-            sub_arrow = Arrow(
-                to_cart_point(current_v2_array),
-                to_cart_point(current_v2_array + shift_vec),
-                color=RED,
-                buff=0,
-            )
-            self.play(ShowCreation(sub_arrow))
-            self.wait(0.5)
-            
-            next_v2_array = current_v2_array + shift_vec
-            new_v2 = basis_arrow(next_v2_array, color=WHITE)
-            
-            new_label2 = Tex("v_2").set_color(c2).next_to(new_v2.get_end(), UP+LEFT, buff=0.1)
-            new_info_text = get_basis_text(current_v1_array, next_v2_array).move_to(info_text.get_center())
+            new_step_box = SurroundingRectangle(lines[5], color=YELLOW, buff=0.06)
+            self.play(ReplacementTransform(step_box, new_step_box), run_time=0.9)
+            step_box = new_step_box
+            self.wait(1.0)
+
+            old_v = v.copy()
+            new_v = v - c * u
+
+            update_text = Tex(rf"v\leftarrow v-{c}u=({int(new_v[0])},{int(new_v[1])})")
+            update_text.set_color(WHITE)
+            update_text.scale(0.74)
+            update_text.next_to(compute_text, DOWN, aligned_edge=LEFT, buff=0.18)
+
+            shift_arrow = Arrow(c2p(old_v), c2p(new_v), buff=0, color=RED)
+            shift_arrow.set_stroke(RED, width=3.2, opacity=1.0)
+            self.play(Write(update_text), ShowCreation(shift_arrow), run_time=1.0)
+            self.wait(1.0)
+
+            v = new_v
+            new_basis = build_basis_group(u, v)
+            new_cell = build_cell_group(u, v)
+            new_status = pin_status_block(build_status_block(u, v))
 
             self.play(
-                ReplacementTransform(v2, new_v2),
-                ReplacementTransform(label2, new_label2),
-                ReplacementTransform(info_text, new_info_text), 
-                FadeOut(sub_arrow), FadeOut(perp_line), 
-                FadeOut(span_line), FadeOut(m_dot),
-                FadeOut(proj_dot), FadeOut(proj_label)
+                ReplacementTransform(basis_group, new_basis),
+                ReplacementTransform(cell_group, new_cell),
+                ReplacementTransform(status_block, new_status),
+                FadeOut(shift_arrow),
+                run_time=1.1,
             )
-            
-            v2 = new_v2
-            label2 = new_label2
-            info_text = new_info_text 
-            current_v2_array = next_v2_array
-            
-            self.play(FadeOut(calc_text), FadeOut(action_text))
-            self.wait(0.5)
+            self.wait(1.0)
+            basis_group = new_basis
+            cell_group = new_cell
+            status_block = new_status
 
-        # Fundamental cell after reduction.
-        after_cell = get_fundamental_cell(current_v1_array, current_v2_array, GREEN, fill_opacity=0.26)
-        after_edges = get_cell_edge_vectors(current_v1_array, current_v2_array)
-        after_cell_text = Text(
-            "Fundamental cell (after reduction)",
-            font_size=24,
-            color=GREEN,
-        ).to_edge(DOWN)
-        self.play(
-            ShowCreation(after_cell),
-            ShowCreation(after_edges[0]),
-            ShowCreation(after_edges[1]),
-            Write(after_edges[2]),
-            Write(after_edges[3]),
-            FadeIn(after_cell_text, UP),
+            new_step_box = SurroundingRectangle(lines[6], color=YELLOW, buff=0.06)
+            self.play(ReplacementTransform(step_box, new_step_box), run_time=0.9)
+            step_box = new_step_box
+            self.wait(1.0)
+
+            if np.linalg.norm(u) > np.linalg.norm(v):
+                swap_text = Tex(r"\lVert u\rVert>\lVert v\rVert,\ \text{swap }u\ \text{and }v")
+                swap_text.set_color(WHITE)
+                swap_text.scale(0.74)
+                swap_text.next_to(update_text, DOWN, aligned_edge=LEFT, buff=0.18)
+                self.play(Write(swap_text), run_time=0.7)
+
+                u, v = v.copy(), u.copy()
+                new_basis = build_basis_group(u, v)
+                new_cell = build_cell_group(u, v)
+                new_status = pin_status_block(build_status_block(u, v))
+
+                self.play(
+                    ReplacementTransform(basis_group, new_basis),
+                    ReplacementTransform(cell_group, new_cell),
+                    ReplacementTransform(status_block, new_status),
+                    run_time=1.0,
+                )
+                self.wait(1.0)
+                basis_group = new_basis
+                cell_group = new_cell
+                status_block = new_status
+                self.play(FadeOut(swap_text), run_time=0.4)
+
+            self.play(FadeOut(compute_text), FadeOut(update_text), run_time=0.4)
+            self.wait(1.0)
+
+        final_box = SurroundingRectangle(status_block, color=GREEN, buff=0.12)
+        final_text = Text("Returned reduced basis [u, v]", font_size=30, color=GREEN)
+        final_text.next_to(final_box, DOWN, buff=0.25)
+
+        self.play(ShowCreation(final_box), Write(final_text), run_time=1.0)
+        self.wait(2.0)
+
+
+class GaussLatticeReductionWithTable(Scene):
+    def construct(self):
+        self.camera.background_color = BLACK
+        self.camera.frame.set_width(24.0)
+
+        plane = NumberPlane(
+            x_range=(-12, 12, 1),
+            y_range=(-10, 14, 1),
+            background_line_style={
+                "stroke_color": GREY,
+                "stroke_width": 1.15,
+                "stroke_opacity": 0.28,
+            },
+            axis_config={
+                "stroke_color": GREY,
+                "stroke_width": 1.8,
+                "stroke_opacity": 0.45,
+            },
         )
-        self.wait(1)
-        self.play(FadeOut(after_cell), FadeOut(after_edges), FadeOut(after_cell_text))
 
-        # Highlight final basis
-        rect = SurroundingRectangle(info_text, color=GREEN)
-        self.play(ShowCreation(rect))
-        
-        ortho_text = Text(
-            "Reduced Basis",
-            font_size=36,
-            color=GREEN,
-            font="Times New Roman",
-        ).next_to(rect, RIGHT)
-        self.play(Write(ortho_text))
-        
-        # self.play(Flash(lattice_dots, color=WHITE, run_time=2))
-        self.wait(3)
+        origin = plane.c2p(0, 0)
+        u_color = MAROON
+        v_color = TEAL
+        cell_color = YELLOW
+
+        def c2p(vec):
+            return plane.c2p(vec[0], vec[1])
+
+        def nearest_integer_ties_toward_zero(x):
+            lower = int(np.floor(x))
+            upper = int(np.ceil(x))
+            d_lower = abs(x - lower)
+            d_upper = abs(x - upper)
+            if d_lower < d_upper:
+                return lower
+            if d_upper < d_lower:
+                return upper
+            return lower if abs(lower) <= abs(upper) else upper
+
+        def vec_tex(name, vec):
+            return f"{name}=({int(vec[0])},{int(vec[1])})"
+
+        def vec_pair(vec):
+            return f"({int(round(vec[0]))},{int(round(vec[1]))})"
+
+        def build_basis_group(u, v):
+            u_arrow = Arrow(origin, c2p(u), buff=0, color=u_color)
+            u_arrow.set_stroke(u_color, width=4, opacity=1.0)
+
+            v_arrow = Arrow(origin, c2p(v), buff=0, color=v_color)
+            v_arrow.set_stroke(v_color, width=4, opacity=1.0)
+
+            u_label = Tex("u").set_color(u_color).next_to(u_arrow.get_end(), RIGHT + DOWN, buff=0.08)
+            v_label = Tex("v").set_color(v_color).next_to(v_arrow.get_end(), LEFT + UP, buff=0.08)
+            return VGroup(u_arrow, v_arrow, u_label, v_label)
+
+        def build_cell_group(u, v):
+            p0 = origin
+            p1 = c2p(u)
+            p2 = c2p(u + v)
+            p3 = c2p(v)
+
+            fill = Polygon(p0, p1, p2, p3, stroke_width=0)
+            fill.set_fill(cell_color, opacity=0.12)
+
+            edges = VGroup(
+                DashedLine(p0, p1, color=cell_color, stroke_width=2.6),
+                DashedLine(p1, p2, color=cell_color, stroke_width=2.6),
+                DashedLine(p2, p3, color=cell_color, stroke_width=2.6),
+                DashedLine(p3, p0, color=cell_color, stroke_width=2.6),
+            )
+            return VGroup(fill, edges)
+
+        def build_status_block(u, v):
+            nu = np.linalg.norm(u)
+            nv = np.linalg.norm(v)
+            lines = VGroup(
+                Tex(vec_tex("u", u)).set_color(u_color),
+                Tex(vec_tex("v", v)).set_color(v_color),
+                Tex(rf"\lVert u\rVert={nu:.3f}").set_color(WHITE),
+                Tex(rf"\lVert v\rVert={nv:.3f}").set_color(WHITE),
+            )
+            return lines.arrange(DOWN, aligned_edge=LEFT, buff=0.14)
+
+        def build_algorithm_panel():
+            line1 = Tex(r"\text{Input: basis }[u,v]\text{ of }L\subseteq\mathbb{Z}^2,\ \lVert u\rVert\leq\lVert v\rVert")
+            line2 = Tex(r"\text{Output: reduced basis }[u,v]")
+            line3 = Tex(r"1.\ c\leftarrow 1")
+            line4 = Tex(r"2.\ \text{while }c\neq 0\ \text{do}")
+            line5 = Tex(r"\ \ (a)\ \mu=\langle u,v\rangle/\lVert u\rVert^2,\ c=[\mu]")
+            line6 = Tex(r"\ \ (b)\ v\leftarrow v-cu")
+            line7 = Tex(r"\ \ (c)\ \text{if }\lVert u\rVert>\lVert v\rVert\ \text{then swap }u,v")
+            line8 = Tex(r"3.\ \text{return }[u,v]")
+
+            lines = VGroup(line1, line2, line3, line4, line5, line6, line7, line8)
+            for ln in lines:
+                ln.set_color(WHITE)
+                ln.scale(0.60)
+
+            lines.arrange(DOWN, aligned_edge=LEFT, buff=0.12)
+            frame = SurroundingRectangle(lines, color=GREY_B, buff=0.18)
+            panel = VGroup(frame, lines)
+            return panel, lines
+
+        def build_history_table(rows):
+            headers = [
+                r"u",
+                r"\lVert u\rVert^2",
+                r"v",
+                r"\lVert v\rVert^2",
+                r"c",
+                r"v-cu",
+            ]
+
+            col_widths = [2.0, 1.8, 2.0, 1.8, 0.8, 2.2]
+            row_height = 0.60
+            total_rows = 1 + len(rows)  # header + data rows
+
+            table_width = sum(col_widths)
+            table_height = row_height * total_rows
+
+            outer = Rectangle(width=table_width, height=table_height)
+            outer.set_stroke(color=GREY_B, width=2.8, opacity=1.0)
+            outer.set_fill(BLACK, opacity=0.25)
+
+            x_left = -table_width / 2
+            y_top = table_height / 2
+
+            inner_vertical = VGroup()
+            x_cursor = x_left
+            for width in col_widths[:-1]:
+                x_cursor += width
+                vline = Line(
+                    np.array([x_cursor, -table_height / 2, 0.0]),
+                    np.array([x_cursor, table_height / 2, 0.0]),
+                )
+                vline.set_stroke(color=GREY_B, width=1.2, opacity=0.95)
+                inner_vertical.add(vline)
+
+            inner_horizontal = VGroup()
+            for ridx in range(1, total_rows):
+                y = y_top - ridx * row_height
+                hline = Line(
+                    np.array([-table_width / 2, y, 0.0]),
+                    np.array([table_width / 2, y, 0.0]),
+                )
+                hline.set_stroke(color=GREY_B, width=1.2, opacity=0.95)
+                inner_horizontal.add(hline)
+
+            entries = VGroup()
+            x_cursor = x_left
+            for cidx, width in enumerate(col_widths):
+                x_center = x_cursor + width / 2
+                x_cursor += width
+
+                col_entries = [headers[cidx]] + [row[cidx] for row in rows]
+                for ridx, entry in enumerate(col_entries):
+                    y_center = y_top - (ridx + 0.5) * row_height
+                    mob = Tex(entry)
+                    mob.scale(0.56 if ridx == 0 else 0.52)
+                    mob.set_color(YELLOW if ridx == 0 else WHITE)
+                    mob.move_to(np.array([x_center, y_center, 0.0]))
+                    entries.add(mob)
+
+            return VGroup(outer, inner_vertical, inner_horizontal, entries)
+
+        def pin_status_block(block):
+            block.next_to(self.camera.frame.get_corner(UL), RIGHT + DOWN, buff=0.35)
+            return block
+
+        def pin_algorithm_panel(panel):
+            panel.next_to(self.camera.frame.get_corner(UR), LEFT + DOWN, buff=0.35)
+            return panel
+
+        def pin_history_table(table):
+            table.next_to(self.camera.frame.get_corner(DL), RIGHT + UP, buff=0.35)
+            return table
+
+        u = np.array([3.0, 5.0])
+        v = np.array([4.0, 7.0])
+        c = 1
+        history_rows = []
+
+        basis_group = build_basis_group(u, v)
+        cell_group = build_cell_group(u, v)
+        status_block = pin_status_block(build_status_block(u, v))
+        panel, lines = build_algorithm_panel()
+        panel = pin_algorithm_panel(panel)
+        step_box = SurroundingRectangle(lines[2], color=YELLOW, buff=0.06)
+        history_table = pin_history_table(build_history_table(history_rows))
+
+        self.add(plane)
+        self.play(ShowCreation(basis_group[0]), ShowCreation(basis_group[1]), Write(basis_group[2]), Write(basis_group[3]), run_time=1.5)
+        self.play(FadeIn(cell_group[0]), ShowCreation(cell_group[1]), run_time=1.2)
+        self.play(FadeIn(panel), Write(status_block), ShowCreation(step_box), FadeIn(history_table), run_time=1.2)
+        self.wait(1.0)
+
+        iteration = 0
+        max_iterations = 10
+
+        while c != 0 and iteration < max_iterations:
+            iteration += 1
+
+            new_step_box = SurroundingRectangle(lines[4], color=YELLOW, buff=0.06)
+            self.play(ReplacementTransform(step_box, new_step_box), run_time=0.9)
+            step_box = new_step_box
+            self.wait(1.0)
+
+            mu = float(np.dot(u, v) / np.dot(u, u))
+            c = nearest_integer_ties_toward_zero(mu)
+            v_minus_cu = v - c * u
+            pending_row = (
+                vec_pair(u),
+                f"{int(round(np.dot(u, u)))}",
+                vec_pair(v),
+                f"{int(round(np.dot(v, v)))}",
+                f"{c}",
+                vec_pair(v_minus_cu),
+            )
+
+            compute_text = Tex(
+                rf"\mu=\langle u,v\rangle/\lVert u\rVert^2={mu:.4f},\quad c=[\mu]={c}"
+            )
+            compute_text.set_color(WHITE)
+            compute_text.scale(0.74)
+            compute_text.next_to(status_block, DOWN, aligned_edge=LEFT, buff=0.28)
+            self.play(Write(compute_text), run_time=0.85)
+            self.wait(1.0)
+
+            if c == 0:
+                done_text = Tex(r"c=0,\ \text{stop the loop}")
+                done_text.set_color(WHITE)
+                done_text.scale(0.74)
+                done_text.next_to(compute_text, DOWN, aligned_edge=LEFT, buff=0.18)
+                new_step_box = SurroundingRectangle(lines[7], color=GREEN, buff=0.06)
+                self.play(Write(done_text), ReplacementTransform(step_box, new_step_box), run_time=0.8)
+                step_box = new_step_box
+                self.wait(1.0)
+                self.play(FadeOut(done_text), FadeOut(compute_text), run_time=0.5)
+
+                history_rows.append(pending_row)
+                new_history_table = pin_history_table(build_history_table(history_rows))
+                self.play(ReplacementTransform(history_table, new_history_table), run_time=0.8)
+                history_table = new_history_table
+                self.wait(1.0)
+                break
+
+            new_step_box = SurroundingRectangle(lines[5], color=YELLOW, buff=0.06)
+            self.play(ReplacementTransform(step_box, new_step_box), run_time=0.9)
+            step_box = new_step_box
+            self.wait(1.0)
+
+            old_v = v.copy()
+            new_v = v_minus_cu
+
+            update_text = Tex(rf"v\leftarrow v-{c}u=({int(new_v[0])},{int(new_v[1])})")
+            update_text.set_color(WHITE)
+            update_text.scale(0.74)
+            update_text.next_to(compute_text, DOWN, aligned_edge=LEFT, buff=0.18)
+
+            shift_arrow = Arrow(c2p(old_v), c2p(new_v), buff=0, color=RED)
+            shift_arrow.set_stroke(RED, width=3.2, opacity=1.0)
+            self.play(Write(update_text), ShowCreation(shift_arrow), run_time=1.0)
+            self.wait(1.0)
+
+            v = new_v
+            new_basis = build_basis_group(u, v)
+            new_cell = build_cell_group(u, v)
+            new_status = pin_status_block(build_status_block(u, v))
+
+            self.play(
+                ReplacementTransform(basis_group, new_basis),
+                ReplacementTransform(cell_group, new_cell),
+                ReplacementTransform(status_block, new_status),
+                FadeOut(shift_arrow),
+                run_time=1.1,
+            )
+            self.wait(1.0)
+            basis_group = new_basis
+            cell_group = new_cell
+            status_block = new_status
+
+            new_step_box = SurroundingRectangle(lines[6], color=YELLOW, buff=0.06)
+            self.play(ReplacementTransform(step_box, new_step_box), run_time=0.9)
+            step_box = new_step_box
+            self.wait(1.0)
+
+            if np.linalg.norm(u) > np.linalg.norm(v):
+                swap_text = Tex(r"\lVert u\rVert>\lVert v\rVert,\ \text{swap }u\ \text{and }v")
+                swap_text.set_color(WHITE)
+                swap_text.scale(0.74)
+                swap_text.next_to(update_text, DOWN, aligned_edge=LEFT, buff=0.18)
+                self.play(Write(swap_text), run_time=0.7)
+
+                u, v = v.copy(), u.copy()
+                new_basis = build_basis_group(u, v)
+                new_cell = build_cell_group(u, v)
+                new_status = pin_status_block(build_status_block(u, v))
+
+                self.play(
+                    ReplacementTransform(basis_group, new_basis),
+                    ReplacementTransform(cell_group, new_cell),
+                    ReplacementTransform(status_block, new_status),
+                    run_time=1.0,
+                )
+                self.wait(1.0)
+                basis_group = new_basis
+                cell_group = new_cell
+                status_block = new_status
+                self.play(FadeOut(swap_text), run_time=0.4)
+
+            self.play(FadeOut(compute_text), FadeOut(update_text), run_time=0.4)
+
+            history_rows.append(pending_row)
+            new_history_table = pin_history_table(build_history_table(history_rows))
+            self.play(ReplacementTransform(history_table, new_history_table), run_time=0.8)
+            history_table = new_history_table
+            self.wait(1.0)
+
+        final_box = SurroundingRectangle(status_block, color=GREEN, buff=0.12)
+        final_text = Text("Returned reduced basis [u, v]", font_size=30, color=GREEN)
+        final_text.next_to(final_box, DOWN, buff=0.25)
+
+        self.play(ShowCreation(final_box), Write(final_text), run_time=1.0)
+        self.wait(2.0)
